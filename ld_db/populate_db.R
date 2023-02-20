@@ -40,6 +40,8 @@ annotation_tables <- list()
 
 for (population in super_populations) {
   
+  print(glue("{Sys.time()}    Loading LD values for {population}"))
+  
   folder <- file.path(download_folder, population, "SNV")
   
   for (file in list.files(folder)) {
@@ -92,14 +94,22 @@ for (population in super_populations) {
   }
 }
 
+print(glue("{Sys.time()}    Merging tables"))
+
 ld_table <- do.call("rbind", ld_tables)
 annotation_table <- do.call("rbind", annotation_tables) %>% distinct()
 
 
 # Write to DB
 
+print(glue("{Sys.time()}    Saving to database"))
+
 dbWriteTable(db_connection, "ld_table", ld_table, overwrite = T)
 dbWriteTable(db_connection, "annotation_table", annotation_table, overwrite = T)
 
 dbDisconnect(db_connection)
 
+
+# Done!
+
+print(glue("{Sys.time()}    Done!"))
