@@ -70,7 +70,7 @@ for (population in super_populations) {
           pop = population
         )
       
-      ld_tables[[length(ld_tables)]] <- ld_tables
+      ld_tables[[length(ld_tables) + 1]] <- ld_tables
       
       annotation_table <- read.table(
         file = annotation_file,
@@ -88,7 +88,7 @@ for (population in super_populations) {
           alt
         )
       
-      annotation_tables[[length(annotation_tables)]] <- annotation_table
+      annotation_tables[[length(annotation_tables) + 1]] <- annotation_table
       
     }
   }
