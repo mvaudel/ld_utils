@@ -30,13 +30,18 @@ super_populations <- c("AFR", "EAS", "EUR", "SAS")
 
 # Set up db
 
+if (file.exists(ld_db)) {
+  
+  file.remove(ld_db)
+  
+}
+
 db_connection <- dbConnect(RSQLite::SQLite(), ld_db)
 
 
 # Gather results from TopLD
 
-ld_tables <- list()
-annotation_tables <- list()
+unique_ids <- c()
 
 for (population in super_populations) {
   
@@ -59,6 +64,8 @@ for (population in super_populations) {
         
       }
       
+      print(glue("{Sys.time()}    Loading LD values for {population} - importing {file}"))
+      
       ld_table <- read.table(
         file = ld_file,
         header = T,
@@ -70,7 +77,11 @@ for (population in super_populations) {
           pop = population
         )
       
-      ld_tables[[length(ld_tables) + 1]] <- ld_tables
+      print(glue("{Sys.time()}    Loading LD values for {population} - Saving {file} to DB"))
+      
+      dbWriteTable(db_connection, "ld_table", ld_table, overwrite = F, append = T)
+      
+      print(glue("{Sys.time()}    Loading LD values for {population} - importing {annotation_file}"))
       
       annotation_table <- read.table(
         file = annotation_file,
@@ -86,30 +97,24 @@ for (population in super_populations) {
           maf,
           ref,
           alt
+        ) %>% 
+        filter(
+          !uniq_id %in% unique_ids
         )
       
-      annotation_tables[[length(annotation_tables) + 1]] <- annotation_table
+      unique_ids <- c(unique_ids, annotation_table$uniq_id)
+      
+      print(glue("{Sys.time()}    Loading LD values for {population} - Saving {annotation_file} to DB"))
+      
+      dbWriteTable(db_connection, "annotation_table", annotation_table, overwrite = F, append = T)
       
     }
   }
 }
 
-print(glue("{Sys.time()}    Merging tables"))
 
-ld_table <- do.call("rbind", ld_tables)
-annotation_table <- do.call("rbind", annotation_tables) %>% distinct()
-
-
-# Write to DB
-
-print(glue("{Sys.time()}    Saving to database"))
-
-dbWriteTable(db_connection, "ld_table", ld_table, overwrite = T)
-dbWriteTable(db_connection, "annotation_table", annotation_table, overwrite = T)
+# Done
 
 dbDisconnect(db_connection)
-
-
-# Done!
 
 print(glue("{Sys.time()}    Done!"))
