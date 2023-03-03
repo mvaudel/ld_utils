@@ -26,14 +26,20 @@ info_suffix <- "info_annotation.csv.gz"
 # Parameters
 
 super_populations <- c("AFR", "EAS", "EUR", "SAS")
+bin_size <- 500000
 
 
 # Set up db
 
 if (file.exists(ld_db)) {
   
-  file.remove(ld_db)
+  removed <- file.remove(ld_db)
   
+  if (!removed) {
+    
+    stop(glue("Current LD database {ld_db} could not be removed."))
+    
+  }
 }
 
 db_connection <- dbConnect(RSQLite::SQLite(), ld_db)
@@ -52,6 +58,8 @@ for (population in super_populations) {
   for (file in list.files(folder)) {
     
     if (endsWith(file, ld_suffix)) {
+      
+      chromosome <- substring(strsplit(x = file, split = "_")[[1]][2], 4)
       
       ld_file <- file.path(folder, file)
       
@@ -74,12 +82,9 @@ for (population in super_populations) {
       ) %>% 
         clean_names() %>% 
         mutate(
-          pop = population
+          uniq_id_1 = paste(chromosome, uniq_id_1, sep = ":"),
+          uniq_id_2 = paste(chromosome, uniq_id_2, sep = ":")
         )
-      
-      print(glue("{Sys.time()}    Loading LD values for {population} - Saving {file} to DB"))
-      
-      dbWriteTable(db_connection, "ld_table", ld_table, overwrite = F, append = T)
       
       print(glue("{Sys.time()}    Loading LD values for {population} - importing {annotation_file}"))
       
@@ -97,6 +102,13 @@ for (population in super_populations) {
           maf,
           ref,
           alt
+        )
+      
+      annotation_table$chromosome <- chromosome
+      
+      annotation_table <- annotation_table %>% 
+        mutate(
+          uniq_id = paste(chromosome, uniq_id, sep = ":")
         ) %>% 
         filter(
           !uniq_id %in% unique_ids
@@ -104,10 +116,32 @@ for (population in super_populations) {
       
       unique_ids <- c(unique_ids, annotation_table$uniq_id)
       
-      print(glue("{Sys.time()}    Loading LD values for {population} - Saving {annotation_file} to DB"))
+      max_pos <- floor(max(annotation_table$position) / bin_size)
       
-      dbWriteTable(db_connection, "annotation_table", annotation_table, overwrite = F, append = T)
+      print(glue("{Sys.time()}    Loading LD values for {population} - Saving {file} to DB"))
       
+      for (bin in 0:max_pos) {
+        
+        bp_min <- bin * bin_size
+        bp_max <- (bin + 1) * bin_size
+        
+        annotation_table_binned <- annotation_table %>%
+          filter(
+            position >= bp_min | position <= bp_max
+          )
+        
+        annotation_table_name <- paste("annotation", chromosome, bin, sep = "_")
+        dbWriteTable(db_connection, annotation_table_name, annotation_table_binned, overwrite = F, append = T)
+        
+        ld_table_binned <- ld_table %>% 
+          filter(
+            uniq_id_1 %in% annotation_table_binned$uniq_id | uniq_id_2 %in% annotation_table_binned$uniq_id
+          )
+        
+        ld_table_name <- paste("ld", population, chromosome, bin, sep = "_")
+        dbWriteTable(db_connection, ld_table_name, ld_table_binned, overwrite = F, append = T)
+        
+      }
     }
   }
 }
