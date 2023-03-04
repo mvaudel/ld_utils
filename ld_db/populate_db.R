@@ -26,7 +26,7 @@ info_suffix <- "info_annotation.csv.gz"
 # Parameters
 
 super_populations <- c("AFR", "EAS", "EUR", "SAS")
-bin_size <- 1000000
+bin_size <- 10000000
 
 
 # Set up db
