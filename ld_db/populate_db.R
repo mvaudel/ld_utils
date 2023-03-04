@@ -103,8 +103,6 @@ for (population in super_populations) {
           alt
         )
       
-      annotation_table$chromosome <- chromosome
-      
       annotation_table <- annotation_table %>% 
         mutate(
           uniq_id = paste(chromosome, uniq_id, sep = ":")
